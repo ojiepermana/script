@@ -12,4 +12,3 @@ EOF
 
 # Install Google Chrome
 sudo dnf install -y google-chrome-stable
-sudo chmod -R o+rx /usr/lib/node_modules/puppeteer/.local-chromium
