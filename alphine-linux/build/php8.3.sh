@@ -11,15 +11,15 @@ fi
 apk update
 apk add --no-cache autoconf build-base bison re2c libxml2-dev openssl-dev curl-dev \
     libpng-dev libjpeg-turbo-dev libzip-dev oniguruma-dev jq sqlite sqlite-dev \
-    postgresql-dev linux-headers
+    postgresql-dev linux-headers libsodium-dev
 
 # Jika variabel PHP_VERSION belum diset, ambil versi terbaru PHP 8.4 dari php.net
 if [ -z "$PHP_VERSION" ]; then
-    echo "Mengambil versi terbaru PHP 8.4..."
-    PHP_VERSION=$(wget -qO- "https://www.php.net/releases/index.php?json&version=8.4&max=1" | jq -r 'keys[0]')
+    echo "Mengambil versi terbaru PHP 8.3..."
+    PHP_VERSION=$(wget -qO- "https://www.php.net/releases/index.php?json&version=8.3&max=1" | jq -r 'keys[0]')
     if [ -z "$PHP_VERSION" ]; then
         echo "Gagal mengambil versi terbaru, menggunakan versi default 8.4.0"
-        PHP_VERSION="8.4.0"
+        PHP_VERSION="8.3.0"
     fi
 fi
 
@@ -44,7 +44,7 @@ fi
 tar -xf ${PHP_TAR}
 cd ${PHP_SRC}
 
-# Konfigurasi build dengan opsi yang diinginkan, termasuk dukungan untuk PostgreSQL, sockets, dan lainnya
+# Konfigurasi build dengan opsi yang diinginkan, termasuk dukungan untuk PostgreSQL, sockets, dan sodium
 ./configure --prefix=/usr/local/php \
     --with-config-file-path=/usr/local/php \
     --enable-mbstring \
@@ -58,7 +58,8 @@ cd ${PHP_SRC}
     --with-sqlite3 \
     --with-pgsql \
     --with-pdo-pgsql \
-    --enable-sockets
+    --enable-sockets \
+    --enable-sodium
 
 # Compile dan install
 make -j$(nproc)
@@ -76,3 +77,10 @@ echo "PHP ${PHP_VERSION} berhasil diinstall di /usr/local/php dan sudah tersedia
 cd /
 rm -rf ${BUILD_DIR}
 echo "Direktori build ${BUILD_DIR} telah dihapus."
+
+# Install Composer
+echo "Menginstal Composer..."
+curl -sS https://getcomposer.org/installer -o composer-setup.php
+/usr/local/php/bin/php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+rm -f composer-setup.php
+echo "Composer telah diinstal dan tersedia sebagai 'composer'"
