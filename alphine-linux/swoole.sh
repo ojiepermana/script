@@ -7,6 +7,8 @@ if [ "$(id -u)" != "0" ]; then
    exit 1
 fi
 
+echo "Memulai proses instalasi Swoole dan pembersihan file build..."
+
 # Update repositori dan install dependensi build yang diperlukan
 apk update
 apk add --no-cache autoconf build-base re2c wget jq openssl-dev curl-dev libxml2-dev
@@ -49,7 +51,8 @@ fi
 # Mengekstrak source code
 tar -xf ${SWOOLE_TAR}
 
-# Nama direktori hasil ekstrak biasanya tanpa awalan "v" pada versinya
+# Masuk ke direktori hasil ekstrak
+# Nama direktori biasanya tanpa awalan "v" (misal: swoole-src-6.0.1)
 SWOOLE_DIR="swoole-src-${SWOOLE_VERSION#v}"
 cd "$SWOOLE_DIR"
 
@@ -63,7 +66,7 @@ phpize
 make -j$(nproc)
 make install
 
-# Menambahkan extension Swoole ke php.ini (asumsi file konfigurasi PHP ada di /usr/local/php/php.ini)
+# Tambahkan konfigurasi extension ke php.ini (asumsi file konfigurasi PHP ada di /usr/local/php/php.ini)
 PHP_INI="/usr/local/php/php.ini"
 if grep -q "extension=swoole.so" ${PHP_INI}; then
     echo "Swoole sudah terkonfigurasi di ${PHP_INI}"
@@ -74,12 +77,25 @@ fi
 
 echo "Swoole ${SWOOLE_VERSION} berhasil diinstall dan diaktifkan."
 
-echo "Swoole ${SWOOLE_VERSION} berhasil diinstall dan diaktifkan."
+# Proses pembersihan file build yang tidak diperlukan
+echo "Memulai proses pembersihan file build..."
 
-# Clean up build directories and tarballs
-echo "Membersihkan file sementara..."
-rm -rf /usr/local/src/php
-rm -rf /usr/local/src/swoole
-apk cache clean
+# Hapus direktori build Swoole
+SWOOLE_BUILD_DIR="/usr/local/src/swoole"
+if [ -d "$SWOOLE_BUILD_DIR" ]; then
+    echo "Menghapus direktori build Swoole: $SWOOLE_BUILD_DIR"
+    rm -rf "$SWOOLE_BUILD_DIR"
+else
+    echo "Direktori build Swoole tidak ditemukan."
+fi
 
-echo "Pembersihan selesai."
+# Hapus direktori build PHP (jika ada, misalnya saat PHP dikompilasi dari source)
+PHP_BUILD_DIR="/usr/local/src/php"
+if [ -d "$PHP_BUILD_DIR" ]; then
+    echo "Menghapus direktori build PHP: $PHP_BUILD_DIR"
+    rm -rf "$PHP_BUILD_DIR"
+else
+    echo "Direktori build PHP tidak ditemukan."
+fi
+
+echo "Proses pembersihan selesai."
