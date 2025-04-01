@@ -24,3 +24,22 @@ sudo dnf config-manager --enable mysql-8.4-lts-community
 sudo yum install mysql-community-server -y
 sudo grep 'temporary password' /var/log/mysqld.log
 
+
+
+sudo -u nginx /usr/bin/php /var/www/moodle/admin/cli/install.php \
+--chmod=2770 \
+--lang=en \
+--wwwroot=http://103.167.112.60:81 \
+--dataroot=/var/www/moodledata \
+--dbtype=mysqli \
+--dbname=moodle \
+--dbuser=moggy \
+--dbpass=Moggy@121 \
+--dbhost=localhost \
+--fullname="Moodle E-Learning" \
+--shortname="Moodle" \
+--adminuser=admin \
+--adminpass=Moggy@121! \
+--adminemail=training@etos.co.id \
+--agree-license \
+--non-interactive
