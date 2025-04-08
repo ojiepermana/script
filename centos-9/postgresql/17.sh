@@ -5,3 +5,10 @@ dnf install -y postgresql17-server
 systemctl enable postgresql-17
 systemctl start postgresql-17
 systemctl restart postgresql-17
+
+sudo dnf install firewalld -y
+sudo systemctl enable firewalld
+sudo systemctl start firewalld
+
+firewall-cmd --permanent --add-port=5432/tcp
+firewall-cmd --reload
