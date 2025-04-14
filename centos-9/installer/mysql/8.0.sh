@@ -73,14 +73,20 @@ echo -e "${PINK}=========================="
 echo "Reset password root dan buat user 'etos'..."
 echo -e "==========================${RESET}"
 
-# Matikan MySQL dan jalankan mode aman (tanpa password)
+# Stop MySQL
 systemctl stop mysqld
-mysqld_safe --skip-grant-tables --skip-networking &
 
-# Tunggu MySQL siap
+# Jalankan MySQL tanpa autentikasi, socket custom
+mkdir -p /var/run/mysqld
+chown mysql:mysql /var/run/mysqld
+
+echo -e "${PINK}Menjalankan MySQL tanpa autentikasi...${RESET}"
+nohup mysqld --skip-grant-tables --skip-networking=0 --socket=/tmp/mysql.sock > /dev/null 2>&1 &
+
 sleep 8
 
-mysql <<EOF
+# Jalankan perintah SQL untuk reset password
+mysql --socket=/tmp/mysql.sock <<EOF
 FLUSH PRIVILEGES;
 ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';
 CREATE USER IF NOT EXISTS 'etos'@'192.168.0.%' IDENTIFIED BY '${MYSQL_ETOS_PASSWORD}';
@@ -88,11 +94,11 @@ GRANT ALL PRIVILEGES ON *.* TO 'etos'@'192.168.0.%' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 EOF
 
-# Stop mysqld_safe
-pkill -f -- "--skip-grant-tables"
+# Stop MySQL sementara
+pkill -f --skip-grant-tables
 sleep 3
 
-# Start MySQL secara normal
+# Start kembali MySQL normal
 systemctl start mysqld
 
 echo -e "${PINK}=========================="
