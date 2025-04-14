@@ -98,7 +98,7 @@ FLUSH PRIVILEGES;
 EOF
 
 # Kill proses MySQL manual
-pkill -f --skip-grant-tables
+pkill -f 'mysqld.*skip-grant-tables'
 sleep 3
 
 # Start kembali MySQL normal
