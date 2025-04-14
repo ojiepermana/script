@@ -3,8 +3,8 @@
 # ========================
 # Konfigurasi Password
 # ========================
-MYSQL_ROOT_PASSWORD="Oldradix9"
-MYSQL_ETOS_PASSWORD="Oldradix9"
+MYSQL_ROOT_PASSWORD="OldRadix9"
+MYSQL_ETOS_PASSWORD="OldRadix9"
 
 # Warna pink
 PINK='\e[95m'
@@ -75,17 +75,20 @@ echo -e "==========================${RESET}"
 
 # Stop MySQL
 systemctl stop mysqld
+pkill mysqld
+sleep 3
 
-# Jalankan MySQL tanpa autentikasi, socket custom
-mkdir -p /var/run/mysqld
-chown mysql:mysql /var/run/mysqld
-
-echo -e "${PINK}Menjalankan MySQL tanpa autentikasi...${RESET}"
-nohup mysqld --skip-grant-tables --skip-networking=0 --socket=/tmp/mysql.sock > /dev/null 2>&1 &
+echo -e "${PINK}Menjalankan MySQL tanpa autentikasi (skip-grant-tables)...${RESET}"
+nohup /usr/libexec/mysqld \
+  --user=mysql \
+  --skip-grant-tables \
+  --skip-networking=0 \
+  --socket=/tmp/mysql.sock \
+  --datadir=/var/lib/mysql > /dev/null 2>&1 &
 
 sleep 8
 
-# Jalankan perintah SQL untuk reset password
+# Jalankan perintah SQL melalui socket custom
 mysql --socket=/tmp/mysql.sock <<EOF
 FLUSH PRIVILEGES;
 ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';
@@ -94,7 +97,7 @@ GRANT ALL PRIVILEGES ON *.* TO 'etos'@'192.168.0.%' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 EOF
 
-# Stop MySQL sementara
+# Kill proses MySQL manual
 pkill -f --skip-grant-tables
 sleep 3
 
