@@ -1,51 +1,63 @@
 #!/bin/bash
 
+# ========================
+# Konfigurasi Password
+# ========================
 MYSQL_ROOT_PASSWORD="Oldradix9"
 MYSQL_ETOS_PASSWORD="Oldradix9"
 
-echo "=========================="
-echo "Pastikan dijalankan sebagai root"
-echo "=========================="
+# Warna pink
+PINK='\e[95m'
+RESET='\e[0m'
+
+# ========================
+# Cek root user
+# ========================
 if [ "$(id -u)" -ne 0 ]; then
-    echo "Script harus dijalankan sebagai root."
+    echo -e "${PINK}Script ini harus dijalankan sebagai root!${RESET}"
     exit 1
 fi
 
-echo "=========================="
+echo -e "${PINK}=========================="
 echo "Update sistem..."
-echo "=========================="
+echo -e "==========================${RESET}"
 dnf update -y
 
-echo "=========================="
+echo -e "${PINK}=========================="
 echo "Enable modul dan install MySQL 8..."
-echo "=========================="
+echo -e "==========================${RESET}"
 dnf module reset -y mysql
 dnf module enable -y mysql:8.0
 dnf install -y mysql-server
 
-echo "=========================="
-echo "Start dan enable mysqld..."
-echo "=========================="
+echo -e "${PINK}=========================="
+echo "Start dan enable MySQL..."
+echo -e "==========================${RESET}"
 systemctl enable --now mysqld
 
-echo "=========================="
+echo -e "${PINK}=========================="
 echo "Install dan aktifkan firewalld..."
-echo "=========================="
+echo -e "==========================${RESET}"
 dnf install -y firewalld
 systemctl enable --now firewalld
 
-echo "=========================="
-echo "Konfigurasi firewalld: izinkan 192.168.1.0/24 ke port 3306..."
-echo "=========================="
+echo -e "${PINK}=========================="
+echo "Konfigurasi firewalld untuk MySQL..."
+echo "Hanya izinkan subnet 192.168.1.0/24 ke port 3306"
+echo -e "==========================${RESET}"
 firewall-cmd --permanent --new-zone=mysqldb
 firewall-cmd --permanent --zone=mysqldb --add-source=192.168.1.0/24
 firewall-cmd --permanent --zone=mysqldb --add-port=3306/tcp
 firewall-cmd --reload
+
+echo -e "${PINK}=========================="
+echo "Status zona mysqldb:"
+echo -e "==========================${RESET}"
 firewall-cmd --zone=mysqldb --list-all
 
-echo "=========================="
-echo "Konfigurasi bind-address agar bisa remote..."
-echo "=========================="
+echo -e "${PINK}=========================="
+echo "Konfigurasi bind-address MySQL..."
+echo -e "==========================${RESET}"
 cp /etc/my.cnf /etc/my.cnf.bak
 
 if ! grep -q "bind-address" /etc/my.cnf; then
@@ -57,21 +69,36 @@ fi
 
 systemctl restart mysqld
 
-echo "=========================="
-echo "Konfigurasi password root dan user etos..."
-echo "=========================="
-# Ambil temporary password dari log
-TEMP_PASS=$(grep 'temporary password' /var/log/mysqld.log | awk '{print $NF}')
+echo -e "${PINK}=========================="
+echo "Reset password root dan buat user 'etos'..."
+echo -e "==========================${RESET}"
 
-# Jalankan perintah MySQL untuk setup root & user etos
-mysql --connect-expired-password -uroot -p"${TEMP_PASS}" <<EOF
+# Matikan MySQL dan jalankan mode aman (tanpa password)
+systemctl stop mysqld
+mysqld_safe --skip-grant-tables --skip-networking &
+
+# Tunggu MySQL siap
+sleep 8
+
+mysql <<EOF
+FLUSH PRIVILEGES;
 ALTER USER 'root'@'localhost' IDENTIFIED BY '${MYSQL_ROOT_PASSWORD}';
-CREATE USER 'etos'@'192.168.0.%' IDENTIFIED BY '${MYSQL_ETOS_PASSWORD}';
+CREATE USER IF NOT EXISTS 'etos'@'192.168.0.%' IDENTIFIED BY '${MYSQL_ETOS_PASSWORD}';
 GRANT ALL PRIVILEGES ON *.* TO 'etos'@'192.168.0.%' WITH GRANT OPTION;
 FLUSH PRIVILEGES;
 EOF
 
-echo "=========================="
-echo "Selesai!"
-echo "Root dan user 'etos' telah dibuat dengan password: ${MYSQL_ROOT_PASSWORD}"
-echo "MySQL sekarang bisa diakses dari subnet 192.168.1.0/24 (port 3306)."
+# Stop mysqld_safe
+pkill -f -- "--skip-grant-tables"
+sleep 3
+
+# Start MySQL secara normal
+systemctl start mysqld
+
+echo -e "${PINK}=========================="
+echo "SELESAI!"
+echo "MySQL 8 telah diinstall dan dikonfigurasi."
+echo "Root password   : ${MYSQL_ROOT_PASSWORD}"
+echo "User 'etos'     : hanya bisa akses dari 192.168.0.0/24"
+echo "MySQL port 3306 hanya bisa diakses dari 192.168.1.0/24"
+echo -e "==========================${RESET}"
