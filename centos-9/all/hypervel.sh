@@ -38,7 +38,7 @@ systemctl enable redis --now
 # 🐬 MySQL 8.4 (from MySQL Official Repo)
 # -----------------------------------------
 echo "🗄️ Installing MySQL 8.4..."
-rpm -Uvh https://dev.mysql.com/get/mysql80-community-release-el9-1.noarch.rpm
+rpm -Uvh https://dev.mysql.com/get/mysql84-community-release-el9-1.noarch.rpm
 dnf module disable -y mysql
 dnf install -y mysql-community-server
 systemctl enable mysqld --now

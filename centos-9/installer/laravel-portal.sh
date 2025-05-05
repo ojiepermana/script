@@ -7,5 +7,8 @@ curl -s "https://raw.githubusercontent.com/ojiepermana/script/refs/heads/main/ce
 curl -s "https://raw.githubusercontent.com/ojiepermana/script/refs/heads/main/centos-9/nodejs/22.sh" | sh
 
 
+
+dnf install php-{posix,mbstring,pcntl,xml,cli,process,bcmath,zip,curl,redis}
+dnf install php83-php-process
 dnf install  php-pgsql php-mysql php-pecl-swoole -y
 
