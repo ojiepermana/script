@@ -43,7 +43,8 @@ sudo systemctl start firewalld
 sudo firewall-cmd --permanent --add-service=http
 sudo firewall-cmd --permanent --add-service=https
 sudo firewall-cmd --permanent --list-all
-sudo firewall-cmd --permanent --zone=public --add-port=81-89/tcp
+sudo firewall-cmd --permanent --zone=public --add-port=5678/tcp
+sudo firewall-cmd --permanent --zone=public --add-port=5432/tcp
 sudo firewall-cmd --reload
 
 info "Installing Node.js 22.x"
