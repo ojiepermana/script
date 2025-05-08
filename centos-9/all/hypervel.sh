@@ -13,12 +13,11 @@ dnf install -y epel-release dnf-utils yum-utils curl unzip git
 # 🐘 PHP 8.3 + Extensions + Swoole + Redis
 # -----------------------------------------
 echo "🔧 Installing PHP 8.3 from Remi Repo..."
-dnf install -y https://rpms.remirepo.net/enterprise/remi-release-9.rpm
+sudo dnf install -y https://rpms.remirepo.net/enterprise/remi-release-9.rpm
 dnf module reset php -y
 dnf module enable php:remi-8.3 -y
 
-dnf install -y php php-cli php-common  php-mysqlnd php-pdo php-xml php-mbstring \
-php-curl php-bcmath php-opcache php-soap php-gd php-intl php-pecl-zip php-devel php-pear
+dnf install -y php php-cli php-common  php-mysqlnd php-pdo php-xml php-mbstring php-curl php-bcmath php-opcache php-soap php-gd php-intl php-pecl-zip php-devel php-pear
 
 echo "📦 Installing php-pecl-swoole..."
 dnf install -y php-pecl-swoole
