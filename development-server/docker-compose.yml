@@ -1,0 +1,34 @@
+services:
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    command:
+      - --api.dashboard=true
+      - --log.level=DEBUG
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+
+      # TLS + Let's Encrypt
+      - --certificatesresolvers.letsencrypt.acme.email=me@ojiepermana.com
+      - --certificatesresolvers.letsencrypt.acme.storage=/etc/traefik/acme.json
+      - --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./traefik/acme.json:/etc/traefik/acme.json
+      - ./etosindonusa/traefik:/etc/traefik/dynamic/etosindonusa:ro
+      - ./ojiepermana/traefik:/etc/traefik/dynamic/ojiepermana:ro
+    networks:
+      - development
+
+networks:
+  development:
+    external: true

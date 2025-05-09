@@ -1,32 +1,56 @@
-PROJECT_DIRS := $(wildcard */)
-COMPOSE_FILES := $(foreach dir, $(PROJECT_DIRS), $(wildcard $(dir)/docker-compose.*.yml))
-
 COMPOSE=docker compose
-FILES=$(foreach file, $(COMPOSE_FILES), -f $(file))
 
-.PHONY: up down restart logs ps project destroy network
+.PHONY: up down restart logs ps project destroy
 
 up:
-	@echo "🚀 Starting all projects..."
-	$(COMPOSE) $(FILES) up -d --build
+	@echo "🚀 Starting root docker-compose.yml (Traefik or global services)..."
+	@if [ -f docker-compose.yml ]; then \
+	  $(COMPOSE) up -d --build; \
+	else \
+	  echo "⚠️  Root docker-compose.yml not found."; \
+	fi
+
+	@echo "🚀 Starting all project docker-compose files..."
+	@for name in $$(find . -maxdepth 1 -type d -not -path '.' | sed 's|^./||'); do \
+	  FILE=$$name/docker-compose.$$name.yml; \
+	  if [ -f $$FILE ]; then \
+	    echo "▶️  Starting project: $$name"; \
+	    $(COMPOSE) -p $$name -f $$FILE up -d --build; \
+	  else \
+	    echo "⚠️  Compose file not found for $$name at $$FILE"; \
+	  fi; \
+	done
 
 down:
-	@echo "🛑 Stopping all projects..."
-	$(COMPOSE) $(FILES) down
+	@echo "🛑 Stopping all project docker-compose files..."
+	@for name in $$(find . -maxdepth 1 -type d -not -path '.' | sed 's|^./||'); do \
+	  FILE=$$name/docker-compose.$$name.yml; \
+	  if [ -f $$FILE ]; then \
+	    echo "⏹️  Stopping project: $$name"; \
+	    $(COMPOSE) -p $$name -f $$FILE down; \
+	  fi; \
+	done
+
+	@echo "🛑 Stopping root docker-compose.yml..."
+	@if [ -f docker-compose.yml ]; then \
+	  $(COMPOSE) down; \
+	else \
+	  echo "⚠️  Root docker-compose.yml not found."; \
+	fi
 
 restart:
-	@echo "🔁 Restarting all projects..."
-	$(COMPOSE) $(FILES) restart
+	@echo "🔁 Restarting all containers..."
+	@make down && make up
 
 logs:
-	@echo "📋 Tailing logs for all projects..."
-	$(COMPOSE) $(FILES) logs -f
+	@echo "📋 Tailing logs for root or first project..."
+	@$(COMPOSE) -f $(firstword $(shell find . -name 'docker-compose.*.yml')) logs -f
 
 ps:
 	@echo "📦 Listing running containers..."
-	$(COMPOSE) $(FILES) ps
+	@docker ps
 
-project: network
+project:
 	@if [ -z "$(NAME)" ]; then \
 		echo "❌ NAME is required: make project NAME=projectname [INDEX=0]"; \
 		exit 1; \
@@ -41,11 +65,3 @@ destroy:
 	fi
 	@echo "🗑️  Removing project directory: $(NAME)"
 	@rm -rf ./$(NAME)
-
-network:
-	@if ! docker network inspect development >/dev/null 2>&1; then \
-		echo "🔧 Creating 'development' network..."; \
-		docker network create development; \
-	else \
-		echo "✅ Network 'development' already exists."; \
-	fi

@@ -7,25 +7,14 @@ shift
 
 # Default values
 PROJECT_INDEX=0
-PG_MASTERS=1
-MYSQL_MASTERS=1
-WITH_SERVICES=(redis mongodb clickhouse n8n minio mailpit nginx)
+WITH_SERVICES=(postgres mysql redis mongodb clickhouse n8n minio mailpit nginx php)
 
 # Parse arguments
 for arg in "$@"
 do
   case $arg in
     --index=*)
-      PROJECT_INDEX="${arg#*=}"
-      ;;
-    --pg-master=*)
-      PG_MASTERS="${arg#*=}"
-      ;;
-    --mysql-master=*)
-      MYSQL_MASTERS="${arg#*=}"
-      ;;
-    --with=*)
-      IFS=',' read -r -a WITH_SERVICES <<< "${arg#*=}"
+      PROJECT_INDEX=$(( ${arg#*=} ))
       ;;
     *)
       echo "Unknown option: $arg" && exit 1
@@ -34,7 +23,7 @@ do
 done
 
 if [ -z "$PROJECT_NAME" ]; then
-  echo "Usage: $0 <project-name> [--index=N] [--pg-master=N] [--mysql-master=N] [--with=svc1,svc2,...]"
+  echo "Usage: $0 <project-name> [--index=N]"
   exit 1
 fi
 
@@ -53,77 +42,27 @@ mkdir -p "$PROJECT_DIR"
 function gen_port() {
   local S="$1"
   local I="$2"
-  echo "8${PROJECT_INDEX}${S}${I}"
+  printf "8%01d%01d%01d" "$PROJECT_INDEX" "$S" "$I"
 }
-
 function write_port() {
   echo "$1=$2" >> "$ENV_FILE"
   echo "$1 => $2" >> "$PORT_DOC_FILE"
 }
 
 function create_service_dir() {
-  mkdir -p "$PROJECT_DIR/database/$1/$2"
+  mkdir -p "$PROJECT_DIR/database/$1"
 }
 
 # Start writing YAML
 cat > "$COMPOSE_FILE" <<EOF
-version: '3.8'
 
 services:
 EOF
 
-# PostgreSQL Masters
-declare -i i=0
-while [ $i -lt $PG_MASTERS ]; do
-  port=$(gen_port 0 $i)
-  var="PG_MASTER$((i+1))_PORT"
-  write_port $var $port
-  create_service_dir postgres master$((i+1))
-  cat >> "$COMPOSE_FILE" <<EOF
-  postgres_master$((i+1)):
-    image: postgres:17
-    container_name: postgres-master$((i+1))-${PROJECT_NAME}
-    ports:
-      - "\${$var}:5432"
-    volumes:
-      - ./database/postgres/master$((i+1)):/var/lib/postgresql/data
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: secret
-    networks:
-      - development
-EOF
-  ((i++))
-done
-
-# MySQL Masters
-i=0
-while [ $i -lt $MYSQL_MASTERS ]; do
-  port=$(gen_port 1 $i)
-  var="MYSQL_MASTER$((i+1))_PORT"
-  write_port $var $port
-  create_service_dir mysql master$((i+1))
-  cat >> "$COMPOSE_FILE" <<EOF
-  mysql_master$((i+1)):
-    image: mysql:9.0
-    container_name: mysql-master$((i+1))-${PROJECT_NAME}
-    ports:
-      - "\${$var}:3306"
-    volumes:
-      - ./database/mysql/master$((i+1)):/var/lib/mysql
-    environment:
-      MYSQL_DATABASE: app
-      MYSQL_USER: app
-      MYSQL_PASSWORD: secret
-      MYSQL_ROOT_PASSWORD: root
-    networks:
-      - development
-EOF
-  ((i++))
-done
-
-# Optional services (1 instance only)
+# Service ID Mapping
 declare -A SERVICE_ID=(
+  [postgres]=0
+  [mysql]=1
   [mongodb]=2
   [redis]=3
   [clickhouse]=4
@@ -131,8 +70,10 @@ declare -A SERVICE_ID=(
   [minio]=6
   [mailpit]=7
   [nginx]=8
+  [php]=9
 )
 
+# Service Generation
 for svc in "${WITH_SERVICES[@]}"; do
   sid="${SERVICE_ID[$svc]}"
   port=$(gen_port $sid 0)
@@ -140,8 +81,46 @@ for svc in "${WITH_SERVICES[@]}"; do
   write_port $var $port
 
   case $svc in
+    postgres)
+      create_service_dir postgres
+      cat >> "$COMPOSE_FILE" <<EOF
+  postgres:
+    image: postgres:17
+    container_name: postgres-${PROJECT_NAME}
+    ports:
+      - "\${$var}:5432"
+    volumes:
+      - ./database/postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: secret
+    networks:
+      - development
+
+EOF
+      ;;
+    mysql)
+      create_service_dir mysql
+      cat >> "$COMPOSE_FILE" <<EOF
+  mysql:
+    image: mysql:9.0
+    container_name: mysql-${PROJECT_NAME}
+    ports:
+      - "\${$var}:3306"
+    volumes:
+      - ./database/mysql:/var/lib/mysql
+    environment:
+      MYSQL_DATABASE: app
+      MYSQL_USER: app
+      MYSQL_PASSWORD: secret
+      MYSQL_ROOT_PASSWORD: root
+    networks:
+      - development
+
+EOF
+      ;;
     redis)
-      mkdir -p "$PROJECT_DIR/database/redis"
+      create_service_dir redis
       cat >> "$COMPOSE_FILE" <<EOF
   redis:
     image: redis:7
@@ -155,7 +134,7 @@ for svc in "${WITH_SERVICES[@]}"; do
 EOF
       ;;
     mongodb)
-      mkdir -p "$PROJECT_DIR/database/mongodb"
+      create_service_dir mongodb
       cat >> "$COMPOSE_FILE" <<EOF
   mongodb:
     image: mongo:latest
@@ -172,7 +151,7 @@ EOF
 EOF
       ;;
     clickhouse)
-      mkdir -p "$PROJECT_DIR/database/clickhouse"
+      create_service_dir clickhouse
       cat >> "$COMPOSE_FILE" <<EOF
   clickhouse:
     image: clickhouse/clickhouse-server
@@ -191,8 +170,6 @@ EOF
   n8n:
     image: n8nio/n8n
     container_name: n8n-${PROJECT_NAME}
-    ports:
-      - "\${$var}:5678"
     volumes:
       - ./n8n:/home/node/.n8n
     networks:
@@ -205,8 +182,6 @@ EOF
   minio:
     image: minio/minio
     container_name: minio-${PROJECT_NAME}
-    ports:
-      - "\${$var}:9000"
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: admin
@@ -229,17 +204,49 @@ EOF
 EOF
       ;;
     nginx)
-      mkdir -p "$PROJECT_DIR/nginx"
+      mkdir -p "$PROJECT_DIR/nginx/conf.d"
+      mkdir -p "$PROJECT_DIR/nginx/hosting"
+      mkdir -p "$PROJECT_DIR/code/laravel"
+      cat > "$PROJECT_DIR/nginx/conf.d/default.conf" <<NGINX_DEFAULT
+include /etc/nginx/conf.d/laravel/*.conf;
+include /etc/nginx/conf.d/angular/*.conf;
+NGINX_DEFAULT
       cat >> "$COMPOSE_FILE" <<EOF
   nginx:
     image: nginx:latest
     container_name: nginx-${PROJECT_NAME}
-    ports:
-      - "\${$var}:80"
     volumes:
-      - ./nginx:/etc/nginx/conf.d
+      - ./nginx/conf.d:/etc/nginx/conf.d
+      - ./code/laravel:/home/www-data
+      - ./nginx/hosting:/usr/share/nginx/html
     networks:
       - development
+EOF
+      ;;
+    php)
+      mkdir -p "$PROJECT_DIR/docker"
+      cat > "$PROJECT_DIR/docker/default.Dockerfile" <<PHP_DOCKER
+FROM php:8.3-fpm
+
+RUN apt-get update && apt-get install -y \
+    zip unzip curl git libpq-dev libpng-dev libjpeg-dev libonig-dev libxml2-dev \
+    && docker-php-ext-install pdo pdo_mysql pdo_pgsql gd mbstring xml
+
+WORKDIR /var/www
+PHP_DOCKER
+
+      mkdir -p "$PROJECT_DIR/code"
+      cat >> "$COMPOSE_FILE" <<EOF
+  php:
+    build:
+      context: .
+      dockerfile: ./docker/default.Dockerfile
+    container_name: php-${PROJECT_NAME}
+    volumes:
+      - ./code:/var/www
+    networks:
+      - development
+
 EOF
       ;;
   esac
