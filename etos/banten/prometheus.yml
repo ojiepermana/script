@@ -1,0 +1,31 @@
+global:
+  scrape_interval: 30s
+
+scrape_configs:
+  - job_name: "prometheus-banten-node"
+    static_configs:
+      - targets:
+          - "localhost:9100"
+        labels:
+          cabang: "banten"
+
+  - job_name: "nas-banten-node"
+    static_configs:
+      - targets:
+          - "10.5.0.5:9100"
+        labels:
+          cabang: "NAS banten"
+
+  - job_name: "app-banten-node"
+    static_configs:
+      - targets:
+          - "10.5.0.10:9100"
+        labels:
+          cabang: "App banten"
+
+  - job_name: "app-banten-postgres"
+    static_configs:
+      - targets:
+          - "10.5.0.10:9187"
+        labels:
+          cabang: "Postgres App banten"

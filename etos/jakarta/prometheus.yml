@@ -1,0 +1,31 @@
+global:
+  scrape_interval: 30s
+
+scrape_configs:
+  - job_name: "prometheus-jakarta-node"
+    static_configs:
+      - targets:
+          - "localhost:9100"
+        labels:
+          cabang: "jakarta"
+
+  - job_name: "nas-jakarta-node"
+    static_configs:
+      - targets:
+          - "10.1.0.5:9100"
+        labels:
+          cabang: "NAS jakarta"
+
+  - job_name: "app-jakarta-node"
+    static_configs:
+      - targets:
+          - "10.1.0.10:9100"
+        labels:
+          cabang: "App jakarta"
+
+  - job_name: "app-jakarta-postgres"
+    static_configs:
+      - targets:
+          - "10.1.0.10:9187"
+        labels:
+          cabang: "Postgres App jakarta"

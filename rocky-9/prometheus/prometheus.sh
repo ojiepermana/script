@@ -9,6 +9,12 @@ INSTALL_DIR="/usr/local/bin"
 CONFIG_DIR="/etc/prometheus"
 DATA_DIR="/var/lib/prometheus"
 
+
+echo  "Update & Basic Setup"
+sudo dnf update -y && dnf install bash nano wget tar ncurses zip unzip  -y && \
+echo "Berhasil menginstal alat dasar"
+
+
 echo "🔧 Menyiapkan user & direktori Prometheus..."
 sudo useradd --no-create-home --shell /bin/false $USER || true
 sudo mkdir -p $CONFIG_DIR $DATA_DIR
@@ -93,7 +99,7 @@ sudo systemctl daemon-reexec
 sudo systemctl daemon-reload
 sudo systemctl enable --now prometheus node_exporter
 
-info "Installing and configuring Firewalld"
+echo "Installing and configuring Firewalld"
 sudo dnf install -y firewalld && \
 sudo systemctl enable firewalld && \
 sudo systemctl start firewalld && \
@@ -108,7 +114,7 @@ else
 fi
 
 
-info "Setting timezone to Asia/Jakarta"
+echo "Setting timezone to Asia/Jakarta"
 sudo timedatectl set-timezone Asia/Jakarta && \
 status_ok "Timezone set to Asia/Jakarta"
 

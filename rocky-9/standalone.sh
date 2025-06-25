@@ -1,5 +1,9 @@
 #!/bin/bash
 
+echo "Update & Basic Setup"
+sudo dnf update -y && dnf install bash nano wget tar ncurses zip unzip git -y && \
+echo "Berhasil menginstal alat dasar"
+
 # ========================
 # ✅ DEFINISI ENV
 # ========================
