@@ -25,6 +25,14 @@ export N8N_DB_NAME="n8n"
 export N8N_DB_USER="etos"
 export N8N_DB_PASSWORD="OldRadix9"
 export N8N_HOST="0.0.0.0"
+
+# N8N Database Configuration
+export DB_TYPE="postgresdb"
+export DB_POSTGRESDB_HOST="localhost"
+export DB_POSTGRESDB_PORT=5432
+export DB_POSTGRESDB_DATABASE="n8n"
+export DB_POSTGRESDB_USER="etos"
+export DB_POSTGRESDB_PASSWORD="OldRadix9"
 EOF
 
 source $ENV_FILE
@@ -91,6 +99,14 @@ sudo systemctl enable postgresql-17 && \
 sudo systemctl start postgresql-17 && \
 status_ok "PostgreSQL running"
 
+info "Configuring PostgreSQL for n8n"
+sudo -u postgres psql -c "CREATE USER etos WITH ENCRYPTED PASSWORD 'OldRadix9';" || true
+sudo -u postgres psql -c "CREATE DATABASE app_db OWNER etos;" || true
+sudo -u postgres psql -c "CREATE DATABASE n8n OWNER etos;" || true
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE app_db TO etos;" || true
+sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE n8n TO etos;" || true
+status_ok "PostgreSQL databases configured"
+
 info "Installing Firewalld"
 sudo dnf install -y firewalld && \
 sudo systemctl enable firewalld && \
@@ -122,7 +138,7 @@ autorestart=true
 stderr_logfile=/var/log/n8n.err.log
 stdout_logfile=/var/log/n8n.out.log
 user=root
-environment=HOME="/root",USER="root"
+environment=HOME="/root",USER="root",DB_TYPE="postgresdb",DB_POSTGRESDB_HOST="localhost",DB_POSTGRESDB_PORT="5432",DB_POSTGRESDB_DATABASE="n8n",DB_POSTGRESDB_USER="etos",DB_POSTGRESDB_PASSWORD="OldRadix9",N8N_PORT="5678",N8N_HOST="0.0.0.0",N8N_BASIC_AUTH="true",N8N_BASIC_AUTH_USER="etos",N8N_BASIC_AUTH_PASSWORD="OldRadix9"
 EOF
 
 info "Creating Supervisor config for Laravel queue worker"
@@ -150,6 +166,12 @@ info "Installing Node.js 24"
 curl -sL https://rpm.nodesource.com/setup_24.x | sudo bash - && \
 sudo dnf install -y nodejs && \
 status_ok "Node.js 24 installed"
+
+info "Installing n8n via npm"
+sudo npm install -g n8n && status_ok "n8n installed"
+
+info "Initializing n8n database"
+sudo -u root bash -c 'source /etc/profile.d/env-server.sh && export DB_TYPE=postgresdb DB_POSTGRESDB_HOST=localhost DB_POSTGRESDB_PORT=5432 DB_POSTGRESDB_DATABASE=n8n DB_POSTGRESDB_USER=etos DB_POSTGRESDB_PASSWORD=OldRadix9 && echo "yes" | n8n import:credentials --separate --input=/dev/null 2>/dev/null || true' && status_ok "n8n database initialized"
 
 # ========================
 # NODE EXPORTER
@@ -222,6 +244,7 @@ echo -e "${WHITE}${BOLD}Nginx:${RESET} $(nginx -v 2>&1)"
 echo -e "${WHITE}${BOLD}PostgreSQL:${RESET} $(psql --version)"
 echo -e "${WHITE}${BOLD}Node.js:${RESET} $(node -v)"
 echo -e "${WHITE}${BOLD}npm:${RESET} $(npm -v)"
+echo -e "${WHITE}${BOLD}n8n:${RESET} $(n8n --version 2>/dev/null || echo 'Not available in PATH')"
 echo -e "${WHITE}${BOLD}Timezone:${RESET} $(timedatectl | grep "Time zone")"
 echo -e "${WHITE}${BOLD}OS:${RESET} $(cat /etc/os-release | grep PRETTY_NAME | cut -d= -f2)"
 
